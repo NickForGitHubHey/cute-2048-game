@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>软萌2048 · 卡通关卡版</title>
+<style>
+/* SECTION: base */
+:root{
+  --bg:#fff3e6;
+  --board:#f6ddc4;
+  --cell:#efe0cf;
+  --ink:#6b4a35;
+  --ink-soft:#9b7a63;
+  --accent:#ff9db2;
+  --accent2:#8fd6c0;
+  --gap:3.2%;
+  --step:114.16%; /* (22.6 + 3.2) / 22.6 */
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  background:var(--bg);
+  background-image:radial-gradient(circle at 12% 18%, #ffe9d6 0 22%, transparent 22%),
+                   radial-gradient(circle at 88% 12%, #ffe0e8 0 18%, transparent 18%),
+                   radial-gradient(circle at 80% 85%, #e2f5ea 0 20%, transparent 20%),
+                   radial-gradient(circle at 15% 88%, #fff3cd 0 16%, transparent 16%);
+  color:var(--ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  display:flex;justify-content:center;
+  min-height:100%;
+  padding:clamp(12px,3vw,28px);
+}
+.wrap{width:100%;max-width:480px;display:flex;flex-direction:column;gap:clamp(10px,2.5vw,16px);}
+
+/* SECTION: header */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.title{font-size:clamp(1.6rem,6vw,2.1rem);font-weight:800;letter-spacing:1px;}
+.title small{display:block;font-size:.72rem;font-weight:600;color:var(--ink-soft);letter-spacing:2px;margin-top:2px;}
+.scores{display:flex;gap:8px;}
+.scorebox{
+  background:#fffdf8;border-radius:16px;padding:6px 14px;text-align:center;
+  box-shadow:0 3px 0 rgba(155,122,99,.18);min-width:76px;
+}
+.scorebox b{display:block;font-size:1.15rem;line-height:1.2;}
+.scorebox span{font-size:.7rem;color:var(--ink-soft);font-weight:700;letter-spacing:1px;}
+
+/* SECTION: level bar */
+.levelcard{
+  background:#fffdf8;border-radius:18px;padding:10px 14px;
+  box-shadow:0 3px 0 rgba(155,122,99,.18);
+}
+.levelrow{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:.92rem;}
+.levelrow .goal{color:var(--ink-soft);font-size:.8rem;font-weight:600;white-space:nowrap;}
+.bar{height:12px;border-radius:99px;background:#efe3d3;margin-top:8px;overflow:hidden;}
+.bar i{
+  display:block;height:100%;width:0%;border-radius:99px;
+  background:linear-gradient(90deg,#ffc3d3,#ffb37d 55%,#8fd6c0);
+  transition:width .35s ease;
+}
+
+/* SECTION: board */
+.board{
+  background:var(--board);border-radius:22px;padding:var(--gap);
+  box-shadow:0 6px 0 rgba(155,122,99,.22);
+  touch-action:none;user-select:none;-webkit-user-select:none;
+}
+.field{position:relative;width:100%;aspect-ratio:1;}
+.cells{
+  position:absolute;inset:0;display:grid;
+  grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:var(--gap);
+}
+.cells div{background:var(--cell);border-radius:14%;}
+.tilelayer{position:absolute;inset:0;pointer-events:none;}
+.tile{
+  position:absolute;left:0;top:0;width:22.6%;aspect-ratio:1;
+  border-radius:16%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transform:translate(calc(var(--r,0) * var(--step)), calc(var(--c,0) * var(--step)));
+  transition:transform .11s ease;
+  will-change:transform;
+  box-shadow:0 3px 0 rgba(0,0,0,.08);
+}
+.tile .fruit{position:absolute;top:7%;left:9%;font-size:clamp(.55rem,2.6vw,.85rem);line-height:1;opacity:.9;}
+.tile .num{font-weight:800;line-height:1;font-size:clamp(1.15rem,7.2vw,2.15rem);color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.10);}
+.tile.d3 .num{font-size:clamp(1rem,5.8vw,1.7rem);}
+.tile.d4 .num{font-size:clamp(.85rem,4.8vw,1.4rem);}
+.tile.spawn{animation:pop-in .18s ease;}
+.tile.merged{animation:pop-merge .22s ease;}
+@keyframes pop-in{0%{transform:translate(calc(var(--r,0)*var(--step)),calc(var(--c,0)*var(--step))) scale(.2);opacity:.2;}100%{transform:translate(calc(var(--r,0)*var(--step)),calc(var(--c,0)*var(--step))) scale(1);opacity:1;}}
+@keyframes pop-merge{0%{transform:translate(calc(var(--r,0)*var(--step)),calc(var(--c,0)*var(--step))) scale(1);}45%{transform:translate(calc(var(--r,0)*var(--step)),calc(var(--c,0)*var(--step))) scale(1.18);}100%{transform:translate(calc(var(--r,0)*var(--step)),calc(var(--c,0)*var(--step))) scale(1);}}
+
+/* SECTION: tile colors (macaron) */
+.v2   {background:#ffc9d6;} .v2 .num{color:#c2556f;text-shadow:none;}
+.v4   {background:#ffe6a3;} .v4 .num{color:#b08421;text-shadow:none;}
+.v8   {background:#bfe8cf;} .v8 .num{color:#3f8b5f;text-shadow:none;}
+.v16  {background:#c9defc;} .v16 .num{color:#4a6fb4;text-shadow:none;}
+.v32  {background:#d9c6f7;} .v32 .num{color:#7a52b8;text-shadow:none;}
+.v64  {background:#ffb98a;} .v64 .num{color:#b35a20;text-shadow:none;}
+.v128 {background:#9fdcc8;} .v128 .num{color:#2c7a5e;text-shadow:none;}
+.v256 {background:#ffd08a;} .v256 .num{color:#a86a12;text-shadow:none;}
+.v512 {background:#ff9db2;} .v512 .num{color:#a03350;text-shadow:none;}
+.v1024{background:#f7b5e8;} .v1024 .num{color:#9c317f;text-shadow:none;}
+.v2048{background:#ffe36e;} .v2048 .num{color:#9c7408;}
+.v4096{background:#a5f3ec;} .v4096 .num{color:#187a70;text-shadow:none;}
+.v8192{background:#c4c9ff;} .v8192 .num{color:#4549a8;text-shadow:none;}
+.vmax {background:linear-gradient(135deg,#ffd6e0,#fff3c4,#d8f5e3,#dbeafe);animation:shine 2.4s linear infinite;}
+.vmax .num{color:#7a5aa8;text-shadow:none;}
+@keyframes shine{0%{filter:brightness(1);}50%{filter:brightness(1.12);}100%{filter:brightness(1);}}
+
+/* SECTION: controls */
+.controls{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.hint{font-size:.78rem;color:var(--ink-soft);font-weight:600;min-width:0;}
+.btn{
+  border:none;cursor:pointer;font-weight:800;letter-spacing:1px;
+  background:var(--accent);color:#fff;border-radius:99px;
+  padding:11px 22px;font-size:.95rem;box-shadow:0 4px 0 #e07f96;
+  transition:transform .08s;min-height:44px;
+}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #e07f96;}
+.btn.green{background:var(--accent2);box-shadow:0 4px 0 #6bb89e;}
+.btn.green:active{box-shadow:0 1px 0 #6bb89e;}
+
+/* SECTION: overlay */
+.overlay{
+  position:fixed;inset:0;background:rgba(107,74,53,.35);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center;padding:20px;z-index:20;
+}
+.overlay.show{display:flex;}
+.card{
+  background:#fffdf8;border-radius:26px;padding:26px 24px;max-width:320px;width:100%;
+  text-align:center;box-shadow:0 8px 0 rgba(155,122,99,.25);animation:card-in .25s ease;
+}
+@keyframes card-in{0%{transform:scale(.8);opacity:0;}100%{transform:scale(1);opacity:1;}}
+.card .face{font-size:3rem;line-height:1;}
+.card h2{margin:10px 0 4px;font-size:1.35rem;}
+.card p{color:var(--ink-soft);font-size:.9rem;font-weight:600;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- SECTION: header markup -->
+  <header class="top">
+    <h1 class="title">软萌2048<small>CUTE&nbsp;FRUIT&nbsp;2048</small></h1>
+    <div class="scores">
+      <div class="scorebox"><b id="score">0</b><span>得分</span></div>
+      <div class="scorebox"><b id="best">0</b><span>最高分</span></div>
+    </div>
+  </header>
+
+  <!-- SECTION: level markup -->
+  <section class="levelcard" aria-label="关卡进度">
+    <div class="levelrow">
+      <strong id="level-label">第1关</strong>
+      <span class="goal" id="goal-label">目标：合成 🍇 32</span>
+    </div>
+    <div class="bar"><i id="bar-fill"></i></div>
+  </section>
+
+  <!-- SECTION: board markup -->
+  <main class="board" id="board" aria-label="2048棋盘">
+    <div class="field">
+      <div class="cells" id="cells"></div>
+      <div class="tilelayer" id="tilelayer"></div>
+    </div>
+  </main>
+
+  <!-- SECTION: controls markup -->
+  <div class="controls">
+    <span class="hint">方向键 / WASD / 手机滑动 均可移动方块</span>
+    <button class="btn green" id="btn-new">新游戏</button>
+  </div>
+
+</div>
+
+<!-- SECTION: overlay markup -->
+<div class="overlay" id="overlay">
+  <div class="card">
+    <div class="face" id="ov-face">🎉</div>
+    <h2 id="ov-title">过关啦！</h2>
+    <p id="ov-desc">描述</p>
+    <button class="btn" id="ov-btn">继续</button>
+  </div>
+</div>
+
+<script>
+/* SECTION: game constants */
+'use strict';
+const SIZE = 4;
+const FRUIT = {2:'🍓',4:'🍋',8:'🫐',16:'🍑',32:'🍇',64:'🍉',128:'🥝',256:'🍍',512:'🍒',1024:'🥭',2048:'👑',4096:'✨',8192:'🌈'};
+const LEVEL_TARGETS = [32,64,128,256,512,1024,2048];
+const BEST_KEY = '***';
+
+const cellsEl = document.getElementById('cells');
+const layerEl = document.getElementById('tilelayer');
+const scoreEl = document.getElementById('score');
+const bestEl = document.getElementById('best');
+const levelLabelEl = document.getElementById('level-label');
+const goalLabelEl = document.getElementById('goal-label');
+const barFillEl = document.getElementById('bar-fill');
+const overlayEl = document.getElementById('overlay');
+const ovFaceEl = document.getElementById('ov-face');
+const ovTitleEl = document.getElementById('ov-title');
+const ovDescEl = document.getElementById('ov-desc');
+const ovBtnEl = document.getElementById('ov-btn');
+
+/* SECTION: game state */
+let cells = new Array(16).fill(null);   // tile | null
+let level = 0;                          // index into LEVEL_TARGETS; === LENGTH means endless
+let score = 0;
+let best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
+let busy = false;
+let ovAction = null;                    // overlay continue callback
+let nextId = 1;
+
+function target(){ return level < LEVEL_TARGETS.length ? LEVEL_TARGETS[level] : null; }
+function newGame(){
+  layerEl.innerHTML = '';
+  cells = new Array(16).fill(null);
+  level = 0; score = 0; busy = false;
+  hideOverlay();
+  spawn(); spawn();
+  refreshHud();
+}
+
+/* SECTION: tile rendering */
+function makeTile(val, r, c, isNew){
+  const el = document.createElement('div');
+  el.className = 'tile';
+  const fruit = document.createElement('span');
+  fruit.className = 'fruit';
+  const num = document.createElement('span');
+  num.className = 'num';
+  el.appendChild(fruit); el.appendChild(num);
+  const t = { id: nextId++, val, r, c, el, fruit, num };
+  paintTile(t);
+  setPos(t);
+  if(isNew){ t.el.classList.add('spawn'); }
+  layerEl.appendChild(el);
+  return t;
+}
+function paintTile(t){
+  t.num.textContent = String(t.val);
+  t.fruit.textContent = FRUIT[t.val] || '🌟';
+  t.el.classList.remove('v2','v4','v8','v16','v32','v64','v128','v256','v512','v1024','v2048','v4096','v8192','vmax','d3','d4');
+  const cls = t.val <= 8192 ? 'v' + t.val : 'vmax';
+  t.el.classList.add(cls);
+  const len = String(t.val).length;
+  if(len >= 4) t.el.classList.add('d4'); else if(len === 3) t.el.classList.add('d3');
+}
+function setPos(t){
+  t.el.style.setProperty('--r', t.r);
+  t.el.style.setProperty('--c', t.c);
+}
+
+/* SECTION: spawning */
+function spawn(){
+  const empty = [];
+  for(let i = 0; i < 16; i++){ if(!cells[i]) empty.push(i); }
+  if(!empty.length) return;
+  const i = empty[Math.floor(Math.random() * empty.length)];
+  const val = Math.random() < 0.9 ? 2 : 4;
+  cells[i] = makeTile(val, Math.floor(i / 4), i % 4, true);
+}
+
+/* SECTION: moving */
+function buildLines(d){
+  // d: 0上 1右 2下 3左; each line ordered from destination edge
+  const lines = [];
+  for(let i = 0; i < 4; i++){
+    const line = [];
+    for(let j = 0; j < 4; j++){
+      const r = (d === 0) ? j : (d === 2) ? 3 - j : i;
+      const c = (d === 1) ? 3 - j : (d === 3) ? j : i;
+      line.push([r, c]);
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+function move(d){
+  if(busy) return;
+  const lines = buildLines(d);
+  const nextCells = new Array(16).fill(null);
+  const eaten = [];
+  const popped = [];
+  let moved = false, gained = 0, biggestMerge = 0;
+
+  for(const line of lines){
+    const ts = line.map(p => cells[p[0] * 4 + p[1]]).filter(Boolean);
+    let i = 0;
+    for(let j = 0; j < ts.length; j++, i++){
+      const t = ts[j];
+      if(j + 1 < ts.length && ts[j + 1].val === t.val){
+        const e = ts[++j];
+        const nr = line[i][0], nc = line[i][1];
+        e.r = nr; e.c = nc; setPos(e);
+        eaten.push(e);
+        t.val *= 2; t.r = nr; t.c = nc;
+        setPos(t);
+        nextCells[nr * 4 + nc] = t;
+        popped.push(t);
+        gained += t.val;
+        if(t.val > biggestMerge) biggestMerge = t.val;
+        moved = true;
+      }else{
+        const nr = line[i][0], nc = line[i][1];
+        if(t.r !== nr || t.c !== nc) moved = true;
+        t.r = nr; t.c = nc;
+        setPos(t);
+        nextCells[nr * 4 + nc] = t;
+      }
+    }
+  }
+  if(!moved) return;
+
+  busy = true;
+  cells = nextCells;
+  score += gained;
+  if(score > best){ best = score; localStorage.setItem(BEST_KEY, String(best)); }
+
+  setTimeout(() => {
+    for(const e of eaten){ e.el.remove(); }
+    for(const t of popped){ paintTile(t); t.el.classList.add('merged'); }
+    setTimeout(() => { for(const t of popped){ t.el.classList.remove('merged'); } }, 200);
+    spawn();
+    refreshHud();
+    busy = false;
+
+    const tg = target();
+    if(tg && biggestMerge >= tg){ celebrateLevel(); }
+    else if(!canMove()){ gameOver(); }
+  }, 120);
+}
+
+function canMove(){
+  for(let i = 0; i < 16; i++){
+    if(!cells[i]) return true;
+    const r = Math.floor(i / 4), c = i % 4;
+    const v = cells[i].val;
+    if(c < 3 && cells[i + 1] && cells[i + 1].val === v) return true;
+    if(r < 3 && cells[i + 4] && cells[i + 4].val === v) return true;
+  }
+  return false;
+}
+
+/* SECTION: HUD */
+function maxTileVal(){
+  let m = 0;
+  for(const t of cells){ if(t && t.val > m) m = t.val; }
+  return m;
+}
+function refreshHud(){
+  scoreEl.textContent = String(score);
+  bestEl.textContent = String(best);
+  const tg = target();
+  if(tg){
+    levelLabelEl.textContent = '第' + (level + 1) + '关';
+    goalLabelEl.textContent = '目标：合成 ' + (FRUIT[tg] || '🌟') + ' ' + tg;
+    const cur = Math.max(maxTileVal(), 2), base = Math.max(cur, 2);
+    const p = Math.min(1, Math.max(0, (Math.log2(base) - 1) / (Math.log2(tg) - 1)));
+    barFillEl.style.width = (p * 100).toFixed(1) + '%';
+  }else{
+    levelLabelEl.textContent = '无尽模式';
+    goalLabelEl.textContent = '👑 全部通关！继续刷新最高分';
+    barFillEl.style.width = '100%';
+  }
+}
+
+/* SECTION: overlays */
+function showOverlay(face, title, desc, btnText, action){
+  ovFaceEl.textContent = face;
+  ovTitleEl.textContent = title;
+  ovDescEl.textContent = desc;
+  ovBtnEl.textContent = btnText;
+  ovAction = action;
+  overlayEl.classList.add('show');
+}
+function hideOverlay(){ overlayEl.classList.remove('show'); ovAction = null; }
+ovBtnEl.addEventListener('click', () => { if(ovAction) ovAction(); });
+
+function celebrateLevel(){
+  const done = level + 1, tg = target();
+  showOverlay('🎉', '第' + done + '关达成！',
+    '成功合成 ' + tg + '，' + (level + 1 < LEVEL_TARGETS.length ? '准备好进入下一关了吗？' : '最后一步，向 2048 出发！'),
+    '进入第' + (done + 1) + '关', () => {
+      level++;
+      hideOverlay();
+      refreshHud();
+      if(!canMove()) gameOver();
+    });
+}
+function gameOver(){
+  showOverlay('🥺', '棋盘满啦',
+    '本局得分 ' + score + '，最高 ' + best + '。休息一下再来一局甜甜的～',
+    '再来一局', () => newGame());
+}
+
+/* SECTION: input */
+const KEYMAP = {ArrowUp:0,ArrowRight:1,ArrowDown:2,ArrowLeft:3,w:0,d:1,s:2,a:3,W:0,D:1,S:2,A:3};
+window.addEventListener('keydown', (ev) => {
+  if(overlayEl.classList.contains('show')) return;
+  const d = KEYMAP[ev.key];
+  if(d === undefined) return;
+  ev.preventDefault();
+  move(d);
+});
+
+const boardEl = document.getElementById('board');
+let sx = 0, sy = 0, tracking = false;
+boardEl.addEventListener('touchstart', (ev) => {
+  if(ev.touches.length !== 1) return;
+  tracking = true; sx = ev.touches[0].clientX; sy = ev.touches[0].clientY;
+}, {passive:true});
+boardEl.addEventListener('touchmove', (ev) => { ev.preventDefault(); }, {passive:false});
+boardEl.addEventListener('touchend', (ev) => {
+  if(!tracking) return;
+  tracking = false;
+  if(overlayEl.classList.contains('show')) return;
+  const t = ev.changedTouches[0];
+  const dx = t.clientX - sx, dy = t.clientY - sy;
+  if(Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+  if(Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 1 : 3);
+  else move(dy > 0 ? 2 : 0);
+});
+
+document.getElementById('btn-new').addEventListener('click', () => newGame());
+
+/* SECTION: boot */
+(function init(){
+  const frag = document.createDocumentFragment();
+  for(let i = 0; i < 16; i++){
+    const c = document.createElement('div');
+    frag.appendChild(c);
+  }
+  cellsEl.appendChild(frag);
+  newGame();
+})();
+</script>
+</body>
+</html>
